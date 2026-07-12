@@ -1,0 +1,23 @@
+appName: techchallenge2
+
+replicaCount: 1
+
+image:
+  repository: 000540852129.dkr.ecr.us-east-1.amazonaws.com/techchallenge2
+  tag: latest
+
+containerPort: 5000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilization: 50
+  targetMemoryUtilization: 50
