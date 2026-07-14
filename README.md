@@ -1,4 +1,6 @@
-markdown# Tech Challenge 2 — Application Deployment
+> **TL;DR:** Full-stack cloud deployment project demonstrating containerization, Infrastructure as Code, and two parallel CI/CD strategies (Jenkins and GitOps). Provisioned a production-style AWS EKS cluster from scratch with Terraform — including auto-scaling nodes, Horizontal Pod Autoscaling, and an internet-facing load balancer — then built and validated **two independent deployment pipelines**: a traditional Jenkins pipeline (`main` branch) and a modern GitOps pipeline using GitHub Actions + Argo CD + Helm (`gitops` branch). Both were tested end-to-end with live traffic before infrastructure teardown.
+
+---markdown# Tech Challenge 2 — Application Deployment
 
 A simple "Hello, World!" web app deployed via Docker, Terraform, AWS EKS, and CI/CD — implemented two ways: **Jenkins** (this branch) and **GitOps with GitHub Actions + Argo CD** (`gitops` branch).
 
