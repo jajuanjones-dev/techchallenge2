@@ -1,11 +1,33 @@
+cat << 'EOF' > ~/techchallenge2/README.md
 > **TL;DR:** Full-stack cloud deployment project demonstrating containerization, Infrastructure as Code, and two parallel CI/CD strategies (Jenkins and GitOps). Provisioned a production-style AWS EKS cluster from scratch with Terraform — including auto-scaling nodes, Horizontal Pod Autoscaling, and an internet-facing load balancer — then built and validated **two independent deployment pipelines**: a traditional Jenkins pipeline (`main` branch) and a modern GitOps pipeline using GitHub Actions + Argo CD + Helm (`gitops` branch). Both were tested end-to-end with live traffic before infrastructure teardown.
 
----markdown# Tech Challenge 2 — Application Deployment
+---
+
+# Tech Challenge 2 — Application Deployment
 
 A simple "Hello, World!" web app deployed via Docker, Terraform, AWS EKS, and CI/CD — implemented two ways: **Jenkins** (this branch) and **GitOps with GitHub Actions + Argo CD** (`gitops` branch).
 
+## Architecture Overview
+
+```mermaid
+graph LR
+    Dev[Developer Push] -->|main branch| Jenkins[Jenkins Pipeline]
+    Dev -->|gitops branch| GHA[GitHub Actions]
+    Jenkins -->|build + push| ECR[Amazon ECR]
+    GHA -->|build + push| ECR
+    Jenkins -->|kubectl deploy| EKS[EKS Cluster]
+    ArgoCD[Argo CD] -->|watches gitops branch| EKS
+    GHA -.->|triggers image update| ArgoCD
+    EKS --> HPA[HPA: 1-3 pods]
+    EKS --> ALB[AWS ALB Ingress]
+    ALB --> User[End User]
+```
+
+**Note:** The live infrastructure for this project has been torn down after evaluation to avoid ongoing AWS costs. All code, Terraform configs, Jenkins pipeline, and GitOps setup (Helm + Argo CD) remain fully functional and can be redeployed in ~20 minutes by running `terraform apply` followed by the deployment steps below — this was verified working end-to-end during development (see commit history).
+
 ## Live Application URL
 http://k8s-default-techchal-5ecee2d527-572673933.us-east-1.elb.amazonaws.com
+*(Note: infrastructure has since been torn down to avoid ongoing costs — see Architecture Overview above)*
 
 ## Project Overview
 This project demonstrates:
@@ -36,57 +58,27 @@ This project demonstrates:
 ## Setup Instructions
 
 ### 1. Clone the repo
-gh repo clone LifeasJJ/techchallenge2
-cd techchallenge2
-
 ### 2. Run the app locally (optional sanity check)
-pip install flask --break-system-packages
-python3 app.py
-curl http://localhost:5000
-
 ### 3. Build and test the Docker image
-docker build -t techchallenge2 .
-docker run -d -p 5000:5000 --name techchallenge2-test techchallenge2
-curl http://localhost:5000
-docker stop techchallenge2-test && docker rm techchallenge2-test
-
 ### 4. Provision AWS infrastructure with Terraform
-cd terraform
-terraform init
-terraform plan
-terraform apply
 This creates:
 - A VPC with public/private subnets across 2 availability zones
 - An EKS cluster (`techchallenge2-cluster`), Kubernetes v1.33
 - A managed node group: t3.small instances, auto-scaling 1 (min) to 4 (max)
 
 ### 5. Connect kubectl to the cluster
-aws eks update-kubeconfig --name techchallenge2-cluster --region us-east-1
-kubectl get nodes
-
 ### 6. Push the app image to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.us-east-1.amazonaws.com
-docker tag techchallenge2:latest <your-account-id>.dkr.ecr.us-east-1.amazonaws.com/techchallenge2:latest
-docker push <your-account-id>.dkr.ecr.us-east-1.amazonaws.com/techchallenge2:latest
-
 ### 7. Deploy to EKS
-cd ../k8s
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-kubectl apply -f hpa.yaml
-kubectl apply -f ingress.yaml
 Install the metrics server (required for HPA) and the AWS Load Balancer Controller (required for the ALB Ingress) — see Deployment Steps below for full details.
 
 ## Deployment Steps
 1. **Metrics Server** — required for HPA to read CPU/memory usage:
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 2. **AWS Load Balancer Controller** — required for the ALB Ingress to provision a real load balancer:
    - Create IAM policy from the official `iam_policy.json`
    - Create an IAM service account via `eksctl create iamserviceaccount`
    - Install via Helm: `helm install aws-load-balancer-controller eks/aws-load-balancer-controller`
 3. Apply the Deployment, Service, HPA, and Ingress manifests in `/k8s`
 4. Wait 1-3 minutes for the ALB to provision, then retrieve the URL:
-kubectl get ingress techchallenge2-ingress
 
 ## Terraform Code Explanation
 - **provider.tf** — configures the AWS provider and region (us-east-1)
@@ -109,20 +101,4 @@ On the `gitops` branch, deployment follows a GitOps pattern instead of Jenkins:
 Argo CD is installed in the `argocd` namespace on the same EKS cluster, and continuously reconciles the live cluster state to match what's defined in the Helm chart on GitHub — any future push to `gitops` is automatically built (via GitHub Actions) and deployed (via Argo CD), with no manual `kubectl` or `helm` commands required.
 
 ## Repository Structure
-techchallenge2/
-├── app.py                       # Flask "Hello, World!" app
-├── Dockerfile
-├── requirements.txt
-├── Jenkinsfile                  # Jenkins CI/CD pipeline (main branch)
-├── terraform/                   # EKS cluster infrastructure as code
-│   ├── provider.tf
-│   ├── vpc.tf
-│   └── eks.tf
-├── k8s/                         # Kubernetes manifests (main branch deployment)
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── hpa.yaml
-│   └── ingress.yaml
-├── techchallenge2-chart/        # Helm chart (gitops branch)
-├── .github/workflows/           # GitHub Actions CI (gitops branch)
-└── argocd-application.yaml      # Argo CD Application manifest (gitops branch)
+EOF
